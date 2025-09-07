@@ -1,0 +1,451 @@
+// Comprehensive Production Database Schema for MindScope
+// Mental Health Platform with Authentication, Emotion Tracking, and Chat History
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Authentication and Profile
+model User {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  username          String?  @unique
+  password          String
+  firstName         String?
+  lastName          String?
+  dateOfBirth       DateTime?
+  gender            String?
+  phoneNumber       String?
+  profilePicture    String?
+  
+  // Account Status
+  isEmailVerified   Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  lastLogin         DateTime?
+  emailVerificationToken String?
+  passwordResetToken String?
+  passwordResetExpiry DateTime?
+  
+  // Therapeutic Preferences
+  preferredLanguage String   @default("en")
+  timeZone          String   @default("UTC")
+  therapeuticApproaches String[] // CBT, DBT, EMDR, mindfulness
+  crisisContacts    Json?    // Emergency contacts
+  
+  // Privacy Settings
+  shareAnonymousData Boolean @default(false)
+  dataRetentionDays  Int     @default(90)
+  allowCookies       Boolean @default(true)
+  
+  // Relationships
+  sessions          TherapySession[]
+  emotions          EmotionEntry[]
+  conversations     Conversation[]
+  assessments       MentalHealthAssessment[]
+  goals             TherapyGoal[]
+  journalEntries    JournalEntry[]
+  notifications     Notification[]
+  subscriptions     Subscription[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("users")
+}
+
+// Therapy Sessions
+model TherapySession {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  sessionType       String   // "ai_therapist", "guided_meditation", "cbt_exercise", etc.
+  startTime         DateTime
+  endTime           DateTime?
+  duration          Int?     // in minutes
+  
+  // Session Content
+  title             String?
+  description       String?
+  therapeuticApproach String? // CBT, DBT, EMDR, mindfulness
+  techniquesUsed    String[] // Array of technique IDs
+  
+  // Session Metrics
+  initialMood       Int?     // 1-10 scale
+  finalMood         Int?     // 1-10 scale
+  stressLevel       Int?     // 1-10 scale
+  energyLevel       Int?     // 1-10 scale
+  completionRate    Float?   // 0.0-1.0
+  
+  // Session Notes
+  userNotes         String?
+  aiInsights        String?
+  keyBreakthroughs  String[]
+  homeworkAssigned  String[]
+  
+  // Crisis Assessment
+  crisisLevel       String   @default("low") // low, medium, high, critical
+  crisisFlags       String[]
+  interventionsTaken String[]
+  
+  // Relationships
+  emotions          EmotionEntry[]
+  conversations     Conversation[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("therapy_sessions")
+}
+
+// Emotion Tracking
+model EmotionEntry {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId         String?
+  session           TherapySession? @relation(fields: [sessionId], references: [id])
+  
+  // Emotion Data
+  primaryEmotion    String   // anxiety, depression, joy, anger, etc.
+  secondaryEmotions String[]
+  intensity         Int      // 1-10 scale
+  confidence        Float    // AI confidence in detection
+  
+  // Detection Source
+  detectionSource   String   // "text", "voice", "facial", "manual", "multimodal"
+  rawData           Json?    // Store raw analysis data
+  
+  // Context
+  trigger           String?  // What triggered this emotion
+  context           String?  // Situation description
+  location          String?  // Where it occurred
+  
+  // Physiological Data (if available)
+  heartRate         Int?
+  bloodPressure     String?
+  cortisol          Float?
+  
+  timestamp         DateTime @default(now())
+  
+  @@map("emotion_entries")
+}
+
+// Conversation History
+model Conversation {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId         String?
+  session           TherapySession? @relation(fields: [sessionId], references: [id])
+  
+  // Conversation Metadata
+  title             String?
+  conversationType  String   // "therapy", "crisis", "check_in", "assessment"
+  language          String   @default("en")
+  
+  // Conversation Summary
+  totalMessages     Int      @default(0)
+  duration          Int?     // in minutes
+  emotionalJourney  Json?    // Array of emotion changes
+  keyTopics         String[]
+  aiConfidence      Float?
+  
+  // Privacy and Encryption
+  isEncrypted       Boolean  @default(true)
+  encryptionKey     String?
+  
+  // Relationships
+  messages          Message[]
+  
+  startedAt         DateTime @default(now())
+  lastMessageAt     DateTime?
+  
+  @@map("conversations")
+}
+
+// Individual Messages
+model Message {
+  id                String   @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  // Message Content
+  content           String
+  sender            String   // "user", "ai_therapist", "system"
+  messageType       String   @default("text") // "text", "audio", "image", "file"
+  
+  // Message Analysis
+  emotion           String?
+  sentiment         Float?   // -1 to 1
+  toxicity          Float?   // 0 to 1
+  crisisFlag        Boolean  @default(false)
+  
+  // Therapeutic Context
+  therapeuticTechnique String?
+  interventionUsed  String?
+  followUpRequired  Boolean  @default(false)
+  
+  // Technical Metadata
+  audioUrl          String?
+  audioTranscript   String?
+  voiceAnalysis     Json?
+  processingTime    Int?     // milliseconds
+  
+  // Message Status
+  isRead            Boolean  @default(false)
+  isArchived        Boolean  @default(false)
+  isDeleted         Boolean  @default(false)
+  
+  timestamp         DateTime @default(now())
+  editedAt          DateTime?
+  
+  @@map("messages")
+}
+
+// Mental Health Assessments
+model MentalHealthAssessment {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Assessment Details
+  assessmentType    String   // "PHQ-9", "GAD-7", "PTSD-5", "custom"
+  title             String
+  description       String?
+  
+  // Scores and Results
+  totalScore        Int
+  maxScore          Int
+  percentageScore   Float
+  riskLevel         String   // "low", "moderate", "high", "severe"
+  
+  // Detailed Results
+  responses         Json     // Store all responses
+  subscaleScores    Json?    // Breakdown by categories
+  interpretation    String?
+  recommendations   String[]
+  
+  // Follow-up
+  nextAssessmentDue DateTime?
+  alertGenerated    Boolean  @default(false)
+  
+  completedAt       DateTime @default(now())
+  
+  @@map("mental_health_assessments")
+}
+
+// Therapy Goals
+model TherapyGoal {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Goal Details
+  title             String
+  description       String
+  category          String   // "anxiety", "depression", "relationships", "coping"
+  priority          String   @default("medium") // "low", "medium", "high"
+  
+  // Goal Tracking
+  targetDate        DateTime?
+  status            String   @default("active") // "active", "completed", "paused", "cancelled"
+  progress          Float    @default(0.0) // 0.0 to 1.0
+  
+  // Milestones
+  milestones        Json[]   // Array of milestone objects
+  achievements      String[]
+  setbacks          String[]
+  
+  // Measurement
+  measurementType   String   // "subjective", "objective", "behavioral"
+  measurementUnit   String?  // "1-10 scale", "frequency", "duration"
+  baselineValue     Float?
+  currentValue      Float?
+  targetValue       Float?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  completedAt       DateTime?
+  
+  @@map("therapy_goals")
+}
+
+// Journal Entries
+model JournalEntry {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Entry Content
+  title             String?
+  content           String
+  mood              Int?     // 1-10 scale
+  tags              String[]
+  
+  // Privacy
+  isPrivate         Boolean  @default(true)
+  isEncrypted       Boolean  @default(true)
+  
+  // Analysis
+  wordCount         Int?
+  sentimentScore    Float?
+  emotionAnalysis   Json?
+  keyThemes         String[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("journal_entries")
+}
+
+// System Notifications
+model Notification {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Notification Content
+  title             String
+  message           String
+  type              String   // "reminder", "alert", "achievement", "system"
+  priority          String   @default("normal") // "low", "normal", "high", "urgent"
+  
+  // Delivery
+  isRead            Boolean  @default(false)
+  isDelivered       Boolean  @default(false)
+  deliveryMethod    String[] // "in_app", "email", "sms", "push"
+  
+  // Scheduling
+  scheduledFor      DateTime?
+  expiresAt         DateTime?
+  
+  // Actions
+  actionRequired    Boolean  @default(false)
+  actionUrl         String?
+  actionTaken       Boolean  @default(false)
+  
+  createdAt         DateTime @default(now())
+  readAt            DateTime?
+  
+  @@map("notifications")
+}
+
+// User Subscriptions/Plans
+model Subscription {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Subscription Details
+  planName          String   // "free", "premium", "professional"
+  planType          String   // "monthly", "yearly", "lifetime"
+  status            String   // "active", "cancelled", "expired", "suspended"
+  
+  // Billing
+  amount            Float
+  currency          String   @default("USD")
+  billingCycle      String   // "monthly", "yearly"
+  
+  // Dates
+  startDate         DateTime
+  endDate           DateTime?
+  nextBillingDate   DateTime?
+  cancelledAt       DateTime?
+  
+  // Payment
+  paymentMethod     String?  // "card", "paypal", "bank"
+  lastPaymentDate   DateTime?
+  lastPaymentAmount Float?
+  
+  // Features
+  features          String[] // List of enabled features
+  limits            Json?    // Usage limits
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("subscriptions")
+}
+
+// System Analytics and Monitoring
+model SystemAnalytics {
+  id                String   @id @default(cuid())
+  
+  // Usage Metrics
+  metricName        String
+  metricValue       Float
+  metricUnit        String?
+  
+  // Dimensions
+  timeframe         String   // "hourly", "daily", "weekly", "monthly"
+  category          String   // "usage", "performance", "errors", "engagement"
+  subcategory       String?
+  
+  // Context
+  metadata          Json?
+  userId            String?  // For user-specific metrics
+  
+  timestamp         DateTime @default(now())
+  
+  @@map("system_analytics")
+}
+
+// Data Exports and Backups
+model DataExport {
+  id                String   @id @default(cuid())
+  userId            String
+  
+  // Export Details
+  exportType        String   // "full", "conversations", "emotions", "assessments"
+  format            String   // "json", "csv", "pdf"
+  status            String   // "pending", "processing", "completed", "failed"
+  
+  // File Information
+  filename          String?
+  fileSize          Int?     // in bytes
+  downloadUrl       String?
+  expiresAt         DateTime?
+  
+  // Processing
+  startedAt         DateTime @default(now())
+  completedAt       DateTime?
+  errorMessage      String?
+  
+  @@map("data_exports")
+}
+
+// Audit Log for Security and Compliance
+model AuditLog {
+  id                String   @id @default(cuid())
+  
+  // Event Details
+  eventType         String   // "login", "data_access", "data_change", "export"
+  action            String
+  resourceType      String?
+  resourceId        String?
+  
+  // Actor Information
+  userId            String?
+  userEmail         String?
+  ipAddress         String?
+  userAgent         String?
+  
+  // Changes (for data modifications)
+  oldValues         Json?
+  newValues         Json?
+  
+  // Context
+  sessionId         String?
+  success           Boolean
+  errorMessage      String?
+  
+  timestamp         DateTime @default(now())
+  
+  @@map("audit_logs")
+}
