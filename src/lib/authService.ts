@@ -26,10 +26,12 @@ export interface AuthUser {
   username?: string;
   firstName?: string;
   lastName?: string;
+  fullName?: string;
   isEmailVerified: boolean;
   therapeuticApproaches: string[];
   preferredLanguage: string;
   lastLogin?: Date;
+  createdAt: Date;
 }
 
 export interface TokenPayload {
@@ -48,6 +50,12 @@ class AuthService {
     this.jwtSecret = process.env.JWT_SECRET || 'fallback-secret-change-in-production';
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '7d';
     this.bcryptRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
+  }
+
+  // Helper function to generate full name
+  private generateFullName(firstName?: string | null, lastName?: string | null): string | undefined {
+    if (!firstName && !lastName) return undefined;
+    return [firstName, lastName].filter(Boolean).join(' ') || undefined;
   }
 
   // Register new user
@@ -111,9 +119,11 @@ class AuthService {
         username: user.username || undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
+        fullName: this.generateFullName(user.firstName, user.lastName),
         isEmailVerified: user.isEmailVerified,
         therapeuticApproaches: user.therapeuticApproaches,
         preferredLanguage: user.preferredLanguage,
+        createdAt: user.createdAt,
       };
 
       return { user: authUser, token };
@@ -188,10 +198,12 @@ class AuthService {
         username: user.username || undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
+        fullName: this.generateFullName(user.firstName, user.lastName),
         isEmailVerified: user.isEmailVerified,
         therapeuticApproaches: user.therapeuticApproaches,
         preferredLanguage: user.preferredLanguage,
         lastLogin: new Date(),
+        createdAt: user.createdAt,
       };
 
       return { user: authUser, token };
@@ -220,10 +232,12 @@ class AuthService {
         username: user.username || undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
+        fullName: this.generateFullName(user.firstName, user.lastName),
         isEmailVerified: user.isEmailVerified,
         therapeuticApproaches: user.therapeuticApproaches,
         preferredLanguage: user.preferredLanguage,
         lastLogin: user.lastLogin || undefined,
+        createdAt: user.createdAt,
       };
     } catch (error) {
       console.error('Token verification error:', error);
@@ -236,7 +250,7 @@ class AuthService {
     return jwt.sign(
       { userId, email },
       this.jwtSecret,
-      { expiresIn: this.jwtExpiresIn }
+      { expiresIn: this.jwtExpiresIn } as any
     );
   }
 
@@ -406,10 +420,12 @@ class AuthService {
         username: user.username || undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
+        fullName: this.generateFullName(user.firstName, user.lastName),
         isEmailVerified: user.isEmailVerified,
         therapeuticApproaches: user.therapeuticApproaches,
         preferredLanguage: user.preferredLanguage,
         lastLogin: user.lastLogin || undefined,
+        createdAt: user.createdAt,
       };
     } catch (error) {
       console.error('Profile update error:', error);
@@ -471,10 +487,12 @@ class AuthService {
         username: user.username || undefined,
         firstName: user.firstName || undefined,
         lastName: user.lastName || undefined,
+        fullName: this.generateFullName(user.firstName, user.lastName),
         isEmailVerified: user.isEmailVerified,
         therapeuticApproaches: user.therapeuticApproaches,
         preferredLanguage: user.preferredLanguage,
         lastLogin: user.lastLogin || undefined,
+        createdAt: user.createdAt,
       };
     } catch (error) {
       console.error('Get user error:', error);

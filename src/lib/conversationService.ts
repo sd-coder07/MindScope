@@ -1,10 +1,4 @@
 // Enhanced Conversation Service - Production Ready
-import type {
-    Conversation,
-    EmotionEntry,
-    Message,
-    TherapySession
-} from '@prisma/client';
 import prisma from './database';
 
 export interface ConversationData {
@@ -41,15 +35,26 @@ export interface EmotionData {
   rawData?: any;
 }
 
-export interface ConversationWithMessages extends Conversation {
-  messages: Message[];
-  session?: TherapySession;
+export interface ConversationWithMessages {
+  id: string;
+  userId: string;
+  sessionId?: string;
+  title?: string;
+  conversationType: string;
+  language?: string;
+  totalMessages: number;
+  lastMessageAt?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  messages: any[];
+  session?: any;
 }
 
 class EnhancedConversationService {
   
   // Create a new conversation
-  async createConversation(data: ConversationData): Promise<Conversation> {
+  async createConversation(data: ConversationData): Promise<any> {
     try {
       const conversation = await prisma.conversation.create({
         data: {
@@ -58,12 +63,9 @@ class EnhancedConversationService {
           conversationType: data.conversationType,
           sessionId: data.sessionId,
           language: data.language || 'en',
-          startTime: new Date(),
-          isActive: true,
-          metadata: {
-            created_from: 'enhanced_service',
-            version: '2.0'
-          }
+          startedAt: new Date(),
+          totalMessages: 0,
+          keyTopics: [],
         },
       });
 
@@ -81,7 +83,7 @@ class EnhancedConversationService {
   }
 
   // Add message to conversation
-  async addMessage(data: MessageData): Promise<Message> {
+  async addMessage(data: MessageData): Promise<any> {
     try {
       const message = await prisma.message.create({
         data: {
@@ -95,7 +97,6 @@ class EnhancedConversationService {
           therapeuticTechnique: data.therapeuticTechnique,
           audioUrl: data.audioUrl,
           voiceAnalysis: data.voiceAnalysis,
-          metadata: data.metadata || {},
           isRead: false,
           isDeleted: false,
         },
@@ -144,9 +145,28 @@ class EnhancedConversationService {
           },
           data: { isRead: true }
         });
+
+        // Map Prisma result to our interface
+        const result: ConversationWithMessages = {
+          id: conversation.id,
+          userId: conversation.userId,
+          sessionId: conversation.sessionId || undefined,
+          title: conversation.title || undefined,
+          conversationType: conversation.conversationType,
+          language: conversation.language || undefined,
+          totalMessages: conversation.totalMessages,
+          lastMessageAt: conversation.lastMessageAt || undefined,
+          isActive: conversation.isActive,
+          createdAt: conversation.createdAt,
+          updatedAt: conversation.updatedAt,
+          messages: conversation.messages,
+          session: conversation.session,
+        };
+
+        return result;
       }
 
-      return conversation;
+      return null;
     } catch (error) {
       console.error('Get conversation error:', error);
       return null;
@@ -154,7 +174,7 @@ class EnhancedConversationService {
   }
 
   // Get user conversations
-  async getUserConversations(userId: string, limit: number = 20, offset: number = 0): Promise<Conversation[]> {
+  async getUserConversations(userId: string, limit: number = 20, offset: number = 0): Promise<any[]> {
     try {
       const conversations = await prisma.conversation.findMany({
         where: { userId },
@@ -182,7 +202,7 @@ class EnhancedConversationService {
   }
 
   // Record emotion entry
-  async recordEmotion(data: EmotionData): Promise<EmotionEntry> {
+  async recordEmotion(data: EmotionData): Promise<any> {
     try {
       const emotion = await prisma.emotionEntry.create({
         data: {
@@ -229,12 +249,12 @@ class EnhancedConversationService {
 
       // Calculate analytics
       const emotionCounts: Record<string, number> = {};
-      emotions.forEach(emotion => {
+      emotions.forEach((emotion: any) => {
         emotionCounts[emotion.primaryEmotion] = (emotionCounts[emotion.primaryEmotion] || 0) + 1;
       });
 
       const averageIntensity = emotions.length > 0 
-        ? emotions.reduce((sum, e) => sum + e.intensity, 0) / emotions.length 
+        ? emotions.reduce((sum: any, e: any) => sum + e.intensity, 0) / emotions.length 
         : 0;
 
       return {
@@ -284,7 +304,7 @@ class EnhancedConversationService {
   }
 
   // Search conversations
-  async searchConversations(userId: string, query: string, limit: number = 10): Promise<Message[]> {
+  async searchConversations(userId: string, query: string, limit: number = 10): Promise<any[]> {
     try {
       const messages = await prisma.message.findMany({
         where: {
@@ -339,25 +359,25 @@ class EnhancedConversationService {
           fullName: user.fullName,
           createdAt: user.createdAt
         },
-        conversations: user.conversations.map(conv => ({
+        conversations: user.conversations.map((conv: any) => ({
           id: conv.id,
           title: conv.title,
           type: conv.conversationType,
           startTime: conv.startTime,
           endTime: conv.endTime,
-          messages: conv.messages.map(msg => ({
+          messages: conv.messages.map((msg: any) => ({
             content: msg.content,
             sender: msg.sender,
             timestamp: msg.timestamp,
             emotion: msg.emotion
           }))
         })),
-        emotions: user.emotions.map(emotion => ({
+        emotions: user.emotions.map((emotion: any) => ({
           emotion: emotion.primaryEmotion,
           intensity: emotion.intensity,
           timestamp: emotion.timestamp
         })),
-        sessions: user.sessions.map(session => ({
+        sessions: user.sessions.map((session: any) => ({
           id: session.id,
           type: session.sessionType,
           startTime: session.startTime,

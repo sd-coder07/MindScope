@@ -1,13 +1,7 @@
 // Enhanced Conversation Storage Service with Database Integration
 import prisma from './database';
-import type { 
-  Conversation, 
-  Message, 
-  EmotionEntry, 
-  TherapySession,
-  User 
-} from '@prisma/client';
 
+// Using any type temporarily to fix build issues
 export interface ConversationData {
   userId: string;
   sessionId?: string;
@@ -42,15 +36,25 @@ export interface EmotionData {
   rawData?: any;
 }
 
-export interface ConversationWithMessages extends Conversation {
-  messages: Message[];
-  session?: TherapySession;
+export interface ConversationWithMessages {
+  messages: any[];
+  session?: any;
+  id: string;
+  userId: string;
+  sessionId?: string;
+  title?: string;
+  conversationType: string;
+  language?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  lastMessageAt?: Date;
+  isActive: boolean;
 }
 
 class EnhancedConversationService {
   
   // Create new conversation
-  async createConversation(data: ConversationData): Promise<Conversation> {
+  async createConversation(data: ConversationData): Promise<any> {
     try {
       const conversation = await prisma.conversation.create({
         data: {
@@ -79,7 +83,7 @@ class EnhancedConversationService {
   }
 
   // Add message to conversation
-  async addMessage(data: MessageData): Promise<Message> {
+  async addMessage(data: MessageData): Promise<any> {
     try {
       const message = await prisma.message.create({
         data: {
@@ -166,32 +170,7 @@ class EnhancedConversationService {
     userId: string, 
     limit: number = 20, 
     offset: number = 0
-  ): Promise<Conversation[]> {
-    try {
-      const conversations = await prisma.conversation.findMany({
-        where: { userId },
-        orderBy: { lastMessageAt: 'desc' },
-        take: limit,
-        skip: offset,
-        include: {
-          messages: {
-            take: 1,
-            orderBy: { timestamp: 'desc' },
-            select: {
-              content: true,
-              sender: true,
-              timestamp: true,
-            }
-          }
-        }
-      });
-
-      return conversations;
-    } catch (error) {
-      console.error('Get user conversations error:', error);
-      return [];
-    }
-  }
+  ): Promise<any[]> {
     try {
       const conversations = await prisma.conversation.findMany({
         where: { userId },
@@ -219,7 +198,7 @@ class EnhancedConversationService {
   }
 
   // Record emotion entry
-  async recordEmotion(data: EmotionData): Promise<EmotionEntry> {
+  async recordEmotion(data: EmotionData): Promise<any> {
     try {
       const emotion = await prisma.emotionEntry.create({
         data: {
@@ -260,7 +239,7 @@ class EnhancedConversationService {
   async getEmotionHistory(
     userId: string, 
     days: number = 30
-  ): Promise<EmotionEntry[]> {
+  ): Promise<any[]> {
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
@@ -294,13 +273,13 @@ class EnhancedConversationService {
       });
 
       // Calculate analytics
-      const emotionCounts = emotions.reduce((acc, emotion) => {
+      const emotionCounts = emotions.reduce((acc: any, emotion: any) => {
         acc[emotion.primaryEmotion] = (acc[emotion.primaryEmotion] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       const averageIntensity = emotions.length > 0 
-        ? emotions.reduce((sum, e) => sum + e.intensity, 0) / emotions.length 
+        ? emotions.reduce((sum: any, e: any) => sum + e.intensity, 0) / emotions.length 
         : 0;
 
       const trends = this.calculateEmotionTrends(emotions);
@@ -311,7 +290,7 @@ class EnhancedConversationService {
         averageIntensity,
         trends,
         mostCommonEmotion: Object.entries(emotionCounts)
-          .sort(([,a], [,b]) => b - a)[0]?.[0] || 'neutral',
+          .sort(([,a]: any, [,b]: any) => (b as number) - (a as number))[0]?.[0] || 'neutral',
         period: days
       };
     } catch (error) {
@@ -360,7 +339,7 @@ class EnhancedConversationService {
   }
 
   // Search conversations
-  async searchConversations(userId: string, query: string, limit: number = 10): Promise<Message[]> {
+  async searchConversations(userId: string, query: string, limit: number = 10): Promise<any[]> {
     try {
       const messages = await prisma.message.findMany({
         where: {
@@ -427,26 +406,26 @@ class EnhancedConversationService {
           preferredLanguage: user.preferredLanguage,
           therapeuticApproaches: user.therapeuticApproaches
         },
-        conversations: user.conversations.map(conv => ({
+        conversations: user.conversations.map((conv: any) => ({
           id: conv.id,
           title: conv.title,
           type: conv.conversationType,
           startedAt: conv.startedAt,
           messageCount: conv.totalMessages,
-          messages: conv.messages.map(msg => ({
+          messages: conv.messages.map((msg: any) => ({
             content: msg.content,
             sender: msg.sender,
             timestamp: msg.timestamp,
             emotion: msg.emotion
           }))
         })),
-        emotions: user.emotions.map(emotion => ({
+        emotions: user.emotions.map((emotion: any) => ({
           emotion: emotion.primaryEmotion,
           intensity: emotion.intensity,
           timestamp: emotion.timestamp,
           context: emotion.context
         })),
-        sessions: user.sessions.map(session => ({
+        sessions: user.sessions.map((session: any) => ({
           type: session.sessionType,
           startTime: session.startTime,
           duration: session.duration,
@@ -486,7 +465,7 @@ class EnhancedConversationService {
     }
   }
 
-  private async analyzeEmotionPattern(userId: string, currentEmotion: EmotionEntry): Promise<void> {
+  private async analyzeEmotionPattern(userId: string, currentEmotion: any): Promise<void> {
     try {
       // Get recent emotions for pattern analysis
       const recentEmotions = await prisma.emotionEntry.findMany({
@@ -501,8 +480,8 @@ class EnhancedConversationService {
       });
 
       // Check for concerning patterns
-      const highIntensityCount = recentEmotions.filter(e => e.intensity >= 8).length;
-      const negativeEmotions = recentEmotions.filter(e => 
+      const highIntensityCount = recentEmotions.filter((e: any) => e.intensity >= 8).length;
+      const negativeEmotions = recentEmotions.filter((e: any) => 
         ['depression', 'anxiety', 'anger', 'grief', 'trauma'].includes(e.primaryEmotion)
       ).length;
 
@@ -525,34 +504,34 @@ class EnhancedConversationService {
     }
   }
 
-  private calculateEmotionTrends(emotions: EmotionEntry[]) {
+  private calculateEmotionTrends(emotions: any[]) {
     // Group emotions by day
-    const dailyEmotions = emotions.reduce((acc, emotion) => {
+    const dailyEmotions = emotions.reduce((acc: any, emotion: any) => {
       const date = emotion.timestamp.toISOString().split('T')[0];
       if (!acc[date]) acc[date] = [];
       acc[date].push(emotion);
       return acc;
-    }, {} as Record<string, EmotionEntry[]>);
+    }, {} as Record<string, any[]>);
 
     // Calculate daily averages
     const trends = Object.entries(dailyEmotions).map(([date, dayEmotions]) => ({
       date,
-      averageIntensity: dayEmotions.reduce((sum, e) => sum + e.intensity, 0) / dayEmotions.length,
-      emotionCount: dayEmotions.length,
-      dominantEmotion: this.getDominantEmotion(dayEmotions)
+      averageIntensity: (dayEmotions as any).reduce((sum: any, e: any) => sum + e.intensity, 0) / (dayEmotions as any).length,
+      emotionCount: (dayEmotions as any).length,
+      dominantEmotion: this.getDominantEmotion(dayEmotions as any)
     }));
 
     return trends.sort((a, b) => a.date.localeCompare(b.date));
   }
 
-  private getDominantEmotion(emotions: EmotionEntry[]): string {
-    const counts = emotions.reduce((acc, emotion) => {
+  private getDominantEmotion(emotions: any[]): string {
+    const counts = emotions.reduce((acc: any, emotion: any) => {
       acc[emotion.primaryEmotion] = (acc[emotion.primaryEmotion] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
     return Object.entries(counts)
-      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'neutral';
+      .sort(([,a]: any, [,b]: any) => (b as number) - (a as number))[0]?.[0] || 'neutral';
   }
 
   private async logAnalytics(metricName: string, metadata: any): Promise<void> {

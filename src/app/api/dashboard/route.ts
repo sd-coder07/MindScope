@@ -34,9 +34,12 @@ export async function GET(request: NextRequest) {
     
     // Calculate session statistics
     const totalSessions = conversations.length;
-    const activeSessions = conversations.filter(c => 
-      c.endTime === null || c.endTime === undefined
-    ).length;
+    const activeSessions = conversations.filter(c => {
+      // Consider a session active if it had activity in the last 24 hours
+      if (!c.lastMessageAt) return false;
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      return c.lastMessageAt > oneDayAgo;
+    }).length;
 
     const dashboard = {
       user: {
